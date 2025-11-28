@@ -1,0 +1,99 @@
+version: 2
+
+sources:
+  - name: mixpanel  # usage: {{ source('payment_gateway', 'transactions') }}
+    description: >
+      Raw data extracted from Mixpanel.
+      Contains users, events, sessions, marketing spend and subscriptions details.
+    database: postgres  # The physical database name (optional but recommended)
+    schema: raw        # The physical schema name
+    loader: Postgres             # Metadata: Who/what loads this data?
+    
+    # 1. Source-Level Freshness (Applied to all tables unless overridden)
+
+    tables:
+      - name: users
+        description: >
+          product users
+        
+        # 2. Table-Level Overrides (Optional)
+        # If this table updates slower than the rest, override freshness here.
+        freshness:
+          warn_after: {count: 48, period: hour}
+        
+        # 3. Column Definitions & Tests
+        columns:
+          - name: user_id
+            description: Primary key for the transaction.
+            tests:
+              - unique
+              - not_null
+          
+          - name: created_at
+
+          - name: marketing_source
+
+          - name: device_os
+
+          - name: tax_residence
+
+          - name: subscription_status
+            description: Current status of the subscriber
+            tests:
+              - accepted_values:
+                  values: ['free', 'paid', 'churned']
+                  
+
+      - name: events
+        description: Joinable to transactions via charge_id.
+        columns:
+          - name: event_id
+            tests: 
+              - unique
+              - not_null
+          - name: user_id
+            tests:
+              - not_null
+              # relationship test ensures we don't have refunds for missing transactions
+              - relationships:
+                  to: source('mixpanel', 'users')
+                  field: user_id
+          
+          - name: event_name
+          - name: occured_at
+          - name: properties
+      
+      - name: sessions
+        columns: 
+          - name: session_id
+            tests:
+              - not_null
+              - unique 
+          
+          - name: user_id
+          - name: start_timestamp
+          - name: end_timestamp
+          - name: session_duration_seconds
+          - name: event_count
+          - name: platform
+      
+      - name: subscriptions
+        columns: 
+          - name: subscription_id
+
+          - name: user_id
+          - name: plan_id
+          - name: status
+          - name: start_date
+          - name: end_date
+          - name: amount_eur
+          - name: auto_renew
+
+      - name: marketing_spend
+        columns:
+          - name: date
+          - name: utm_source
+          - name: utm_campaign
+          - name: cost_eur
+          - name: impressions
+          - name: clicks
